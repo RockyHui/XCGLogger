@@ -134,9 +134,11 @@ open class FileDestination: BaseQueuedDestination {
     /// - Returns:  Nothing
     ///
     private func closeFile() {
-        logFileHandle?.synchronizeFile()
-        logFileHandle?.closeFile()
-        logFileHandle = nil
+//        logFileHandle?.synchronizeFile()
+        flush { [weak self] in
+            self?.logFileHandle?.closeFile()
+            self?.logFileHandle = nil
+        }
     }
 
     /// Force any buffered data to be written to the file.
@@ -148,10 +150,14 @@ open class FileDestination: BaseQueuedDestination {
     ///
     open func flush(closure: (() -> Void)? = nil) {
         if let logQueue = logQueue {
+            let group = DispatchGroup()
+            group.enter()
             logQueue.async {
                 self.logFileHandle?.synchronizeFile()
                 closure?()
+                group.leave()
             }
+            group.wait()
         }
         else {
             logFileHandle?.synchronizeFile()
